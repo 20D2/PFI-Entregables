@@ -1,0 +1,83 @@
+! ============================================================
+!  OLT ZTE ZXA10 C300 - configuracion del proyecto GPON + IoT
+!  Extracto filtrado del "show running-config" (version V4.8.35)
+!  Contiene SOLO los elementos que usa el sistema de telemetria.
+!  Se omiten credenciales, SNMP y parametros generales del equipo.
+!  Es un extracto de referencia, no un backup restaurable.
+! ============================================================
+!
+! ---- Hardware utilizado ----
+add-rack rackno 1 racktype IEC19
+add-shelf rackno 1 shelfno 1 shelftype IEC_SHELF
+add-card rackno 1 shelfno 1 slotno 13 GTGH      ! tarjeta GPON (puerto PON 1/13/1)
+add-card rackno 1 shelfno 1 slotno 19 HUVQ      ! tarjeta de uplink (gei_1/19/3)
+!
+! ---- Perfil de ancho de banda ----
+gpon
+  profile tcont INTERNET type 4 maximum 1024000
+!
+! ---- Tipo de ONU: BM-TEC BM210G-GE que simula ser una ZTE F601 ----
+pon
+  onu-type generic-F601 gpon description 1GE
+  onu-type generic-F601 gpon max-tcont 8
+  onu-type generic-F601 gpon max-gemport 32
+  onu-type generic-F601 gpon max-switch-perslot 8
+  onu-type generic-F601 gpon max-flow-perswitch 8
+  onu-type-if generic-F601 eth_0/1
+!
+! ---- VLAN del proyecto ----
+vlan database
+  vlan 99,200
+!
+vlan 99
+  name gestion
+!
+! ---- Gestion de la OLT (VLAN 99) ----
+interface vlan 99
+  ip address 10.99.99.2 255.255.255.0
+!
+ip route 0.0.0.0 0.0.0.0 10.99.99.1
+!
+! ---- Puerto PON 1/13/1 y ONU de los Sitios A y B ----
+interface gpon-olt_1/13/1
+  no shutdown
+  linktrap disable
+  onu 1 type generic-F601 sn RTEGCA01096C       ! Sitio A
+  onu 2 type generic-F601 sn RTEGCA01FFBB       ! Sitio B
+!
+interface gpon-onu_1/13/1:1
+  sn-bind enable sn
+  tcont 1 profile INTERNET
+  gemport 1 tcont 1
+  switchport mode hybrid vport 1
+  service-port 1 vport 1 user-vlan 200 vlan 200
+!
+pon-onu-mng gpon-onu_1/13/1:1
+  service 1 gemport 1 vlan 200
+  vlan port eth_0/1 mode hybrid def-vlan 200
+!
+interface gpon-onu_1/13/1:2
+  sn-bind enable sn
+  tcont 1 profile INTERNET
+  gemport 1 tcont 1
+  switchport mode hybrid vport 1
+  service-port 1 vport 1 user-vlan 200 vlan 200
+!
+pon-onu-mng gpon-onu_1/13/1:2
+  service 1 gemport 1 vlan 200
+  vlan port eth_0/1 mode hybrid def-vlan 200
+!
+! ---- Uplink hacia el MikroTik servidor (trunk) ----
+interface gei_1/19/3
+  no shutdown
+  hybrid-attribute fiber
+  negotiation auto
+  flowcontrol disable
+  linktrap enable
+  als disable
+  switchport mode trunk
+  switchport vlan 99,200 tag
+  port-protect disable
+  uplink-isolate disable
+!
+end
